@@ -1,0 +1,31 @@
+plugins {
+    id 'java'
+}
+
+compileJava.options.encoding = 'UTF-8'
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+apply plugin:'application'
+
+group 'at.alex_s168'
+version '1.0'
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven { url 'https://jitpack.io' }
+}
+
+configurations {
+    extraLibs
+    runtime
+}
+
+dependencies {
+    runtime 'commons-lang:commons-lang:2.6'
+    implementation 'io.netty:netty-all:4.1.63.Final'
+    implementation 'com.github.SuperCraftAlex:REVERSE-API-universal:ef8af3fdc7'
+}
