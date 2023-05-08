@@ -18,6 +18,8 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 public class RClient {
     private final String hostIP;
@@ -25,9 +27,11 @@ public class RClient {
     private Bootstrap bootstrap;
     private ChannelFuture future;
     private Channel channel;
+    public final List<PacketProcessor> processors;
 
     public RClient(String ip) {
         this.hostIP = ip;
+        processors = new ArrayList<>();
     }
 
     public void init() throws Exception {
@@ -45,7 +49,7 @@ public class RClient {
                         p.addLast("encoder", new ByteArrayEncoder());
 
                         // This is our custom client handler which will have logic for chat.
-                        p.addLast("handler", new ClientHandler());
+                        p.addLast("handler", new ClientHandler(RClient.this));
 
                     }
                 });
@@ -55,6 +59,10 @@ public class RClient {
         future = bootstrap.connect(hostIP, DEF.PORT+1).sync();
 
         channel = future.sync().channel();
+    }
+
+    public void addProcessor(PacketProcessor processor) {
+        processors.add(processor);
     }
 
     public void sendPacket(RPacket packet) {
@@ -69,7 +77,6 @@ public class RClient {
             throw new RuntimeException(e);
         }
         channel.writeAndFlush(buf.array());
-        //channel.flush();
     }
 
     public void stop() {
@@ -77,7 +84,13 @@ public class RClient {
     }
 
 }
-class  ClientHandler extends SimpleChannelInboundHandler<byte[]> {
+class ClientHandler extends SimpleChannelInboundHandler<byte[]> {
+
+    public RClient client;
+
+    public ClientHandler(RClient client) {
+        this.client = client;
+    }
 
     @Override
     @SuppressWarnings({"unchecked","deprecation"})
@@ -92,6 +105,7 @@ class  ClientHandler extends SimpleChannelInboundHandler<byte[]> {
         RPacket packet = packetClass.newInstance();
         packet.readPacketData(buf);
 
+        client.processors.forEach((p) -> p.process(packet, ctx));
         System.out.println("Received packet "+packet.getClass().getSimpleName()+" from "+ctx.channel().remoteAddress()+"!");
     }
 
@@ -99,6 +113,7 @@ class  ClientHandler extends SimpleChannelInboundHandler<byte[]> {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         System.out.println("Closing connection - "+cause.getMessage());
         ctx.close();
+        System.exit(0);
     }
 
 }
